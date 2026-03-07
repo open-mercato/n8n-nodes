@@ -1,42 +1,66 @@
 # n8n-nodes-open-mercato
 
-Initial scaffolding for the Open Mercato n8n community node package.
+OpenMercato REST API community node for [n8n](https://n8n.io).
 
-## Included
+This package provides a single **OpenMercato REST API** node with 366 auto-generated endpoints across 24 resources, built from the OpenMercato OpenAPI specification.
 
-- `OpenMercatoApi` credentials (base URL + API key)
-- `Open Mercato` declarative REST API node
-- `openapi:generate` script that fetches `/api/docs/openapi`
-- Smoke test for credential/node loading
+## Installation
 
-## Notes
+Install in your n8n instance:
 
-- `Path` is normalized to `/api/...` automatically if needed.
-- Request body is intended for `POST` / `PUT` / `PATCH` (UI hint shown for `GET`/`DELETE`).
+```bash
+npm install n8n-nodes-open-mercato
+```
 
-## Known limitations (MVP)
+Or add to a custom n8n Docker image.
 
-- Generic REST node only (no resource-specific operation list yet)
-- Query/body are entered manually as JSON
-- OpenAPI spec is generated on demand; it is not yet used to auto-build node operations
+## Credentials
 
-## Example workflow
+The node uses **Bearer token** authentication:
 
-Import: `examples/open-mercato-smoke-workflow.json`
-
-This example calls `GET /api/customers/people`.
+1. In n8n, go to **Credentials** > **New Credential**
+2. Search for **OpenMercato REST API**
+3. Enter:
+   - **Base URL**: Your OpenMercato instance URL (default: `https://openmercato.freighttech.org`)
+   - **API Token**: Your Bearer token
 
 ## Development
 
 ```bash
-npx -y @yarnpkg/cli-dist@4.12.0 workspace n8n-nodes-open-mercato build
-npx -y @yarnpkg/cli-dist@4.12.0 workspace n8n-nodes-open-mercato lint
-npx -y @yarnpkg/cli-dist@4.12.0 workspace n8n-nodes-open-mercato test
+# Install dependencies
+npm install
 
-OPEN_MERCATO_BASE_URL=http://localhost:3000 \
-  npx -y @yarnpkg/cli-dist@4.12.0 workspace n8n-nodes-open-mercato openapi:generate
+# Build
+npm run build
 
-# or use an existing JSON file
-OPEN_MERCATO_OPENAPI_SOURCE=apps/mercato/.mercato/generated/openapi.generated.json \
-  npx -y @yarnpkg/cli-dist@4.12.0 workspace n8n-nodes-open-mercato openapi:generate
+# Watch mode
+npm run dev
+
+# Lint
+npm run lint
+
+# Format
+npm run format
+
+# Run tests
+npm test
 ```
+
+### Regenerating from OpenAPI
+
+To regenerate the node properties from the latest OpenAPI spec:
+
+```bash
+# Download fresh spec and regenerate
+npm run generate:openapi -- --download
+
+# Use a custom spec URL
+npm run generate:openapi -- --url https://your-instance/api/docs/openapi
+
+# Filter by tag
+npm run generate:openapi -- --filter fms,accounting
+```
+
+## License
+
+MIT
