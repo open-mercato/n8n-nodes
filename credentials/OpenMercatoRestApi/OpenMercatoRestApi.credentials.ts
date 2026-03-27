@@ -9,15 +9,15 @@ import type {
 export class OpenMercatoRestApi implements ICredentialType {
 	name = 'openMercatoRestApi';
 	displayName = 'OpenMercato REST API';
-	documentationUrl = 'https://github.com/freighttech/n8n-nodes-openmercato';
+	documentationUrl = 'https://github.com/open-mercato/n8n-nodes';
 	icon: Icon = 'file:openmercato.svg';
 	properties: INodeProperties[] = [
 		{
 			displayName: 'Base URL',
 			name: 'baseUrl',
 			type: 'string',
-			default: 'https://openmercato.freighttech.org',
-			placeholder: 'https://openmercato.freighttech.org',
+			default: 'https://docs.openmercato.com',
+			placeholder: 'https://docs.openmercato.com',
 			description: 'The base URL of the OpenMercato API',
 			required: true,
 		},

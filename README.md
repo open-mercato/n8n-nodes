@@ -21,7 +21,7 @@ The node uses **Bearer token** authentication:
 1. In n8n, go to **Credentials** > **New Credential**
 2. Search for **OpenMercato REST API**
 3. Enter:
-   - **Base URL**: Your OpenMercato instance URL (default: `https://openmercato.freighttech.org`)
+   - **Base URL**: Your OpenMercato instance URL (default: `https://docs.openmercato.com`)
    - **API Token**: Your Bearer token
 
 ## Development

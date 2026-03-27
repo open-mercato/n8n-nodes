@@ -13,7 +13,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { generateN8NNodes } from '@algolia/n8n-openapi-node';
 
-const DEFAULT_SPEC_URL = 'https://openmercato.freighttech.org/api/docs/openapi';
+const DEFAULT_SPEC_URL = 'http://localhost/api/docs/openapi';
 const SPEC_PATH = path.resolve(__dirname, '../src/generated/openapi.json');
 const PROCESSED_SPEC_PATH = path.resolve(__dirname, '../src/generated/openapi-processed.json');
 const OUTPUT_PATH = path.resolve(__dirname, '../nodes/OpenMercatoRestApi/properties.ts');
