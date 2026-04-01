@@ -24,6 +24,14 @@ RUN npm run build
 # Stage 2: Production n8n image with custom nodes
 FROM n8nio/n8n:latest
 
+ARG PLAYWRIGHT_VERSION=1.57.0
+ENV NODE_FUNCTION_ALLOW_EXTERNAL=playwright-core
+
+# Install playwright-core globally so n8n Code nodes can require() it
+USER root
+RUN npm install -g playwright-core@${PLAYWRIGHT_VERSION}
+USER node
+
 # Stage built nodes outside the volume mount path
 COPY --from=builder /build/dist /opt/custom-nodes/n8n-nodes-open-mercato
 
