@@ -1,46 +1,66 @@
 {
-  "name": "n8n-nodes-open-mercato",
-  "version": "0.1.0",
-  "description": "n8n community node for Open Mercato",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
-  "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "clean": "rm -rf dist",
-    "lint": "tsc --noEmit",
-    "typecheck": "tsc --noEmit",
-    "test": "node ./scripts/smoke-test.cjs",
-    "openapi:generate": "node scripts/generate-openapi.mjs"
-  },
-  "n8n": {
-    "n8nNodesApiVersion": 1,
-    "credentials": [
-      "dist/credentials/OpenMercatoApi.credentials.js"
-    ],
-    "nodes": [
-      "dist/nodes/OpenMercato/OpenMercato.node.js"
-    ]
-  },
-  "keywords": [
-    "n8n-community-node-package",
-    "n8n",
-    "open-mercato",
-    "openapi"
-  ],
-  "author": "Open Mercato",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/open-mercato/n8n-nodes.git"
-  },
-  "devDependencies": {
-    "@types/node": "^24.10.1",
-    "typescript": "^5.9.3"
-  },
-  "peerDependencies": {
-    "n8n-workflow": "*"
-  }
+	"name": "n8n-nodes-open-mercato",
+	"version": "0.2.0",
+	"description": "OpenMercato REST API community node for n8n workflow automation",
+	"main": "dist/index.js",
+	"type": "commonjs",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/8lines/n8n-nodes.git"
+	},
+	"scripts": {
+		"build": "rimraf dist && tsc && node scripts/postbuild.mjs",
+		"dev": "tsc --watch",
+		"lint": "eslint .",
+		"lintfix": "eslint . --fix",
+		"test": "jest",
+		"format": "prettier 'credentials/**/*.ts' 'nodes/**/*.ts' 'utils/**/*.ts' 'scripts/**/*.ts' --write",
+		"generate:openapi": "tsx scripts/generate-openapi-node.ts"
+	},
+	"keywords": [
+		"n8n",
+		"n8n-community-node-package",
+		"openmercato",
+		"workflow",
+		"automation",
+		"rest",
+		"api"
+	],
+	"author": "FreightTech",
+	"license": "MIT",
+	"files": [
+		"dist/**/*"
+	],
+	"n8n": {
+		"n8nNodesApiVersion": 1,
+		"credentials": [
+			"dist/credentials/OpenMercatoRestApi/OpenMercatoRestApi.credentials.js"
+		],
+		"nodes": [
+			"dist/nodes/OpenMercatoRestApi/OpenMercatoRestApi.node.js"
+		]
+	},
+	"dependencies": {
+		"form-data": "^4.0.0"
+	},
+	"devDependencies": {
+		"@algolia/n8n-openapi-node": "^1.3.3",
+		"@types/jest": "^29.5.14",
+		"@types/node": "^20.10.0",
+		"@typescript-eslint/parser": "~8.32.0",
+		"eslint": "^8.57.0",
+		"eslint-plugin-n8n-nodes-base": "^1.16.3",
+		"glob": "^10.3.10",
+		"globals": "^15.0.0",
+		"jest": "^30.0.0",
+		"n8n-core": "^1.82.0",
+		"prettier": "^3.5.3",
+		"rimraf": "^5.0.0",
+		"ts-jest": "^29.4.0",
+		"tsx": "^4.7.0",
+		"typescript": "^5.8.2"
+	},
+	"peerDependencies": {
+		"n8n-workflow": "*"
+	}
 }

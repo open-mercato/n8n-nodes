@@ -1,0 +1,41 @@
+# Dependencies
+node_modules
+npm-debug.log
+
+# Git
+.git
+.gitignore
+.github
+
+# Documentation
+*.md
+
+# Build artifacts
+dist
+
+# Tests
+__tests__
+*.test.ts
+jest.config.js
+coverage
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Config files not needed for build
+.eslintrc.*
+.prettierrc.js
+eslint.config.js
+
+# Docker files
+Dockerfile
+docker-compose.yml
+docker/
+
+# Misc
+.DS_Store
+*.log
