@@ -24,6 +24,18 @@ The node uses **Bearer token** authentication:
    - **Base URL**: Your OpenMercato instance URL (default: `https://docs.openmercato.com`)
    - **API Token**: Your Bearer token
 
+## Example workflows
+
+### Open Mercato Smoke Workflow
+Import: `examples/open-mercato-smoke-workflow.json`
+
+This example calls `GET /api/customers/people`.
+
+### Open Mercato Enrich Data Workflow
+Import: `examples/openmercato-enrich-data.json`
+
+The workflow starts with a file containing lead data like first name, last name, and email address. Then the automation finds the best matching LinkedIn profile, enriches the data, and sends everything directly to Open Mercato.
+
 ## Development
 
 ```bash

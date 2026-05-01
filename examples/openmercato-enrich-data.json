@@ -1,0 +1,1073 @@
+{
+  "name": "Openmercato template",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "4dbc25fb-2697-4df4-89ff-42b15c75430a",
+      "name": "Loop Over Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "position": [
+        -1168,
+        864
+      ],
+      "typeVersion": 3
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "id": "3f305ce5-7c6f-4ad9-aed0-8ae3f9092445",
+      "name": "Wait 2s",
+      "type": "n8n-nodes-base.wait",
+      "position": [
+        2000,
+        1008
+      ],
+      "webhookId": "__WEBHOOK_ID__",
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "triggerOn": "specificFolder",
+        "folderToWatch": {
+          "__rl": true,
+          "value": "__GOOGLE_DRIVE_FOLDER_ID__",
+          "mode": "list",
+          "cachedResultName": "__GOOGLE_DRIVE_FOLDER_NAME__",
+          "cachedResultUrl": "__GOOGLE_DRIVE_FOLDER_URL__"
+        },
+        "event": "fileCreated",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDriveTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1840,
+        864
+      ],
+      "id": "32730b69-b409-4ca6-b798-f3c7c19c561c",
+      "name": "Google Drive Trigger",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "tzS2wUjfmJ23KtLX",
+          "name": "juliajakubowska.biznes"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -1616,
+        864
+      ],
+      "id": "f6262dd7-0e9f-4041-abb0-8b7386457129",
+      "name": "Download file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "tzS2wUjfmJ23KtLX",
+          "name": "juliajakubowska.biznes"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -1392,
+        864
+      ],
+      "id": "fcdea03a-99bd-4479-b88a-2eb9d6df1ed6",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "content": "## ⚙️ General Setup\nWelcome to the Auto Lead Enrichment workflow!\nTo make it work, you will need to configure 4 tools:\n1. **Google Drive** - to read your files.\n2. **Serper.dev** - to search for LinkedIn URLs.\n3. **Apify** - to scrape the LinkedIn data.\n4. **Google Sheets** - to save the enriched results.",
+        "height": 268,
+        "width": 348,
+        "color": 6
+      },
+      "id": "8e73e48f-d8ae-4ba4-ad41-6e08a6864dd7",
+      "name": "Sticky Note - Intro",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        480,
+        -112
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## 1️⃣ Google Drive Config\n1. Double click this node.\n2. Connect your **Google Account** in the Credentials section.\n3. Select the specific **folder** where you will drop your lead files (e.g. CSV with emails/names).\n\n*Note: Every time a new file is added to this folder, the workflow will trigger automatically.*",
+        "height": 402,
+        "width": 512,
+        "color": 3
+      },
+      "id": "a8fc53da-4c28-4498-a9cb-0a5536e13a12",
+      "name": "Sticky Note - Drive",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1952,
+        640
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## 2️⃣ Serper.dev Config\n1. Double click the node.\n2. In the `Header Parameters`, replace the `X-API-KEY` value with your own API key from [serper.dev](https://serper.dev/).\n\n\n\n*(This tool searches Google to figure out the person's LinkedIn profile URL).* ",
+        "height": 392,
+        "width": 300,
+        "color": 3
+      },
+      "id": "0d141bde-923c-460a-9cca-0637cbd878ec",
+      "name": "Sticky Note - Serper",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -608,
+        576
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## 3️⃣ Apify Config\n1. Double click the node.\n2. In the `URL` field, replace the `token=...` part at the end with your own **Apify API token**.\n\n*(This uses the Apify LinkedIn Scraper actor to pull detailed profile info like job, company, country).* \n\n\n\nAPI key from [apify](https://console.apify.com/actors/LpVuK3Zozwuipa5bp/input).",
+        "height": 472,
+        "width": 300,
+        "color": 3
+      },
+      "id": "3b30dc7a-0c9b-4a70-b88e-51871c15bf92",
+      "name": "Sticky Note - Apify",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        96,
+        400
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## 4️⃣ Google Sheets Config\n1. Double click these nodes (both 'Zapisz' and 'Loguj').\n2. Connect your **Google Account** credentials.\n3. Select your target **Spreadsheet** and specific **Sheet** (e.g., Arkusz1) where you want the final data saved.",
+        "height": 536,
+        "width": 300,
+        "color": 3
+      },
+      "id": "cd700b06-fb1f-4e4d-b723-6e8443253b1e",
+      "name": "Sticky Note - Sheets",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        640,
+        448
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Form -> query -> Serper (LinkedIn URL) -> scoring -> IF -> Apify (profile by URL) -> mapping -> Sheets",
+        "height": 100,
+        "width": 760,
+        "color": 4
+      },
+      "id": "6b60dceb-001e-417f-9615-63b08ab4b6d5",
+      "name": "Sticky Note - Flow1",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -480,
+        1152
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## 5️⃣ OpenMercato Config\n1. Double click these nodes.\n2. In the `Credentials` section, connect your OpenMercato account.\n3. Make sure to update the `organizationId` and `tenantId` in the body parameters to match your OM workspace.",
+        "height": 514,
+        "width": 708,
+        "color": 3
+      },
+      "id": "5b467c31-4c27-4d3d-aa13-41f737ab68b5",
+      "name": "Sticky Note - OpenMercato",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1168,
+        224
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "custom_source",
+              "value": "={{ $json.custom_source || 'Luma Webinar' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d3585c47-0c74-4a88-868c-8bc5c09df9d4",
+      "name": "Source Act (Touchpoint)",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        -944,
+        800
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const pick = (...vals) => {\n  for (const v of vals) {\n    if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();\n  }\n  return '';\n};\n\nconst cap = (s = '') => s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : '';\n\nconst email = pick($json['Email'], $json['E-mail'], $json.email, $json.mail);\nlet firstName = pick($json['First Name'], $json.first_name, $json.firstName, $json['Imię'], $json['Imie']);\nlet lastName = pick($json['Last Name'], $json.last_name, $json.lastName, $json['Nazwisko']);\nconst rawName = pick($json.name, $json.Name, $json['Full Name'], $json.full_name, $json.fullName);\n\nconst domain = (email.split('@')[1] || '').toLowerCase();\nconst domainName = (domain.split('.')[0] || '').toLowerCase();\n\nconst personalDomains = [\n  'gmail', 'googlemail', 'outlook', 'hotmail', 'live', 'msn',\n  'yahoo', 'ymail', 'aol', 'icloud', 'me', 'mac',\n  'protonmail', 'proton', 'tutanota', 'zoho',\n  'wp', 'onet', 'interia', 'o2', 'tlen', 'poczta',\n  'mail', 'email', 'inbox'\n];\nconst isPersonal = personalDomains.includes(domainName);\n\n// 1) fallback z pola name\nif ((!firstName || !lastName) && rawName) {\n  const parts = rawName.split(/\\s+/).filter(Boolean);\n  if (!firstName) firstName = parts[0] || '';\n  if (!lastName) lastName = parts.length > 1 ? parts[parts.length - 1] : '';\n}\n\n// 2) fallback z emaila (np. jan.horubala@gmail.com -> Jan Horubala)\nconst emailUser = (email.split('@')[0] || '').toLowerCase();\nconst emailParts = emailUser.split(/[._-]+/).filter(Boolean);\nconst emailFirst = emailParts[0] || '';\nconst emailLast = emailParts[1] || '';\n\nif (!firstName && emailFirst) firstName = cap(emailFirst);\nif (!lastName && emailLast) lastName = cap(emailLast);\n\nconst fullName = (rawName || `${firstName} ${lastName}`).trim();\n\n// alternatywna nazwa z emaila (pomaga przy literówkach w imieniu)\nlet altName = '';\nif (emailFirst) {\n  const altLast = emailLast || (!isPersonal && domainName.length >= 4 ? domainName : '');\n  altName = `${cap(emailFirst)} ${cap(altLast)}`.trim();\n}\n\nlet query = 'site:linkedin.com/in';\nif (fullName && altName && fullName.toLowerCase() !== altName.toLowerCase()) {\n  query += ` (\"${fullName}\" OR \"${altName}\")`;\n} else if (fullName) {\n  query += ` (${fullName} OR \"${fullName}\")`;\n} else if (altName) {\n  query += ` (${altName} OR \"${altName}\")`;\n}\n\nif (!isPersonal && domainName) query += ` ${domainName}`;\n\nreturn {\n  email,\n  first_name: firstName,\n  last_name: lastName,\n  full_name: fullName,\n  domain,\n  company_hint: isPersonal ? '' : domainName,\n  is_business_email: !isPersonal,\n  search_query: query\n};\n"
+      },
+      "id": "b536bf59-a7ab-49d6-887c-6a7dde5342f5",
+      "name": "Prepare your search",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        -720,
+        800
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-matched",
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              },
+              "leftValue": "={{ $json.matched }}",
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ca9ebb1a-4c84-49ae-ad75-b24edc102f1d",
+      "name": "Profile found?",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        -48,
+        800
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.apify.com/v2/acts/harvestapi~linkedin-profile-scraper/run-sync-get-dataset-items?token=__APIFY_API_TOKEN__",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  profileScraperMode: \"Profile details no email ($4 per 1k)\",\n  queries: [$json.linkedin_url]\n}) }}\n",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "6ff25de7-2680-4efc-91e5-4dd8078f02a7",
+      "name": "Apify - Profile by URL",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        176,
+        704
+      ],
+      "typeVersion": 4.2,
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const orig = $('Prepare your search').item.json;\nconst search = $('Choose the best match').item.json;\n\nfunction uniq(arr) {\n  return [...new Set((arr || []).filter(v => !!v))];\n}\n\nfunction toDateText(d) {\n  if (!d) return '';\n  if (typeof d === 'string') return d.trim();\n  if (typeof d === 'object') {\n    if (d.text) return String(d.text).trim();\n    const year = d.year || d.y;\n    const month = d.month || d.m;\n    if (month && year) return month + ' ' + year;\n    if (year) return String(year);\n  }\n  return '';\n}\n\nfunction isCurrentJob(job) {\n  if (!job || typeof job !== 'object') return false;\n  if (job.isCurrent === true || job.is_current === true) return true;\n\n  const end = job.endDate || job.end_date || job.endsAt || job.ends_at || job.to;\n  if (!end) return true;\n\n  if (typeof end === 'string') {\n    return /present|obecnie|now/i.test(end);\n  }\n\n  if (typeof end === 'object') {\n    const t = String(end.text || '').toLowerCase();\n    if (t.includes('present') || t.includes('obecnie') || t.includes('now')) return true;\n    if (!end.year && !end.month && !end.text) return true;\n  }\n\n  return false;\n}\n\nfunction skillList(raw) {\n  if (Array.isArray(raw.topSkills)) return raw.topSkills.join(', ');\n  if (typeof raw.topSkills === 'string') return raw.topSkills;\n\n  if (Array.isArray(raw.skills)) {\n    return raw.skills\n      .map(s => (typeof s === 'string' ? s : (s && (s.name || s.skill)) || ''))\n      .filter(Boolean)\n      .slice(0, 12)\n      .join(', ');\n  }\n  return '';\n}\n\nfunction shortText(v, max = 500) {\n  const s = String(v || '').trim();\n  if (!s) return '';\n  return s.length > max ? s.slice(0, max) + '...' : s;\n}\n\nif ($json.error) {\n  return {\n    email: orig.email,\n    first_name: orig.first_name,\n    last_name: orig.last_name,\n    linkedin_url: search.linkedin_url || '',\n    kraj: '',\n    rola: '',\n    firma: '',\n    link_do_firmy: '',\n    kiedy_zaczeto_firme: '',\n    informacje: '',\n    source: 'serper_fallback',\n    enrichment_status: 'partial',\n    error_detail: ($json.error || '') + ' (statusCode: ' + ($json.statusCode || '') + ')',\n    enrichment_date: new Date().toISOString()\n  };\n}\n\nconst raw = Array.isArray($json) ? ($json[0] || {}) : ($json || {});\n\nif (!raw || Object.keys(raw).length === 0) {\n  return {\n    email: orig.email,\n    first_name: orig.first_name,\n    last_name: orig.last_name,\n    linkedin_url: search.linkedin_url || '',\n    kraj: '',\n    rola: '',\n    firma: '',\n    link_do_firmy: '',\n    kiedy_zaczeto_firme: '',\n    informacje: '',\n    source: 'serper_fallback',\n    enrichment_status: 'partial',\n    error_detail: 'empty_apify_response',\n    enrichment_date: new Date().toISOString()\n  };\n}\n\nconst jobs = Array.isArray(raw.experience) ? raw.experience : (Array.isArray(raw.experiences) ? raw.experiences : []);\nconst currentJobs = jobs.filter(isCurrentJob);\n\nconst roles = uniq(currentJobs.map(j => j.position || j.title || j.jobTitle || j.job_title || ''));\nconst companies = uniq(currentJobs.map(j => j.companyName || j.company || j.organization || ''));\nconst companyLinks = uniq(currentJobs.map(j => j.companyLinkedinUrl || j.companyUrl || j.companyProfileUrl || j.companyWebsite || ''));\nconst companyStarts = uniq(currentJobs.map(j => {\n  const company = j.companyName || j.company || '';\n  const start = toDateText(j.startDate || j.start_date || j.startedAt || j.startsAt);\n  if (company && start) return company + ': ' + start;\n  return start || '';\n}));\n\nconst location = raw.location || {};\nconst country =\n  (location.parsed && (location.parsed.countryFull || location.parsed.country)) ||\n  location.country ||\n  raw.country ||\n  '';\n\nconst headline = raw.headline || raw.occupation || raw.title || '';\nconst topSkills = skillList(raw);\nconst about = raw.about || raw.summary || raw.bio || '';\n\nconst informacje =\n  'headline: ' + (headline || '-') +\n  '; top skills: ' + (topSkills || '-') +\n  '; about: ' + (shortText(about) || '-');\n\nconst hasData = !!(country || roles.length || companies.length || headline || topSkills || about);\n\nreturn {\n  email: orig.email,\n  first_name: orig.first_name,\n  last_name: orig.last_name,\n  linkedin_url: search.linkedin_url || raw.linkedinUrl || raw.profileUrl || '',\n  kraj: country,\n  rola: roles.join(' | '),\n  firma: companies.join(' | '),\n  link_do_firmy: companyLinks.join(' | '),\n  kiedy_zaczeto_firme: companyStarts.join(' | '),\n  informacje,\n  source: hasData ? 'apify_profile' : 'serper_fallback',\n  enrichment_status: hasData ? 'success' : 'partial',\n  error_detail: hasData ? '' : 'apify_missing_current_data',\n  enrichment_date: new Date().toISOString()\n};\n"
+      },
+      "id": "d78cbf97-7cf8-4327-a3ff-3685a172c956",
+      "name": "Map data",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        400,
+        704
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "__GOOGLE_SHEETS_DOCUMENT_ID__",
+          "mode": "list",
+          "cachedResultName": "__GOOGLE_SHEETS_DOCUMENT_NAME__",
+          "cachedResultUrl": "__GOOGLE_SHEETS_URL__"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "__GOOGLE_SHEET_GID__",
+          "mode": "list",
+          "cachedResultName": "__GOOGLE_SHEET_NAME__",
+          "cachedResultUrl": "__GOOGLE_SHEETS_GID_URL__"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "first_name",
+              "displayName": "first_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "last_name",
+              "displayName": "last_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "linkedin_url",
+              "displayName": "linkedin_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "kraj",
+              "displayName": "kraj",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "rola",
+              "displayName": "rola",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "firma",
+              "displayName": "firma",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "link_do_firmy",
+              "displayName": "link_do_firmy",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "kiedy_zaczeto_firme",
+              "displayName": "kiedy_zaczeto_firme",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "informacje",
+              "displayName": "informacje",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "enrichment_status",
+              "displayName": "enrichment_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "error_detail",
+              "displayName": "error_detail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "enrichment_date",
+              "displayName": "enrichment_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "search_query",
+              "displayName": "search_query",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "fd4b8ccf-9594-4015-883a-42ad8db39cea",
+      "name": "Save to Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [
+        736,
+        656
+      ],
+      "typeVersion": 4.7,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "xRjT1l3946S3SH7Q",
+          "name": "juliajakubowska.biznes"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "__GOOGLE_SHEETS_DOCUMENT_ID__",
+          "mode": "list",
+          "cachedResultName": "__GOOGLE_SHEETS_DOCUMENT_NAME__",
+          "cachedResultUrl": "__GOOGLE_SHEETS_URL__"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "__GOOGLE_SHEET_GID__",
+          "mode": "list",
+          "cachedResultName": "__GOOGLE_SHEET_NAME__",
+          "cachedResultUrl": "__GOOGLE_SHEETS_GID_URL__"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "first_name",
+              "displayName": "first_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "last_name",
+              "displayName": "last_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "linkedin_url",
+              "displayName": "linkedin_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "kraj",
+              "displayName": "kraj",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "rola",
+              "displayName": "rola",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "firma",
+              "displayName": "firma",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "link_do_firmy",
+              "displayName": "link_do_firmy",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "kiedy_zaczeto_firme",
+              "displayName": "kiedy_zaczeto_firme",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "informacje",
+              "displayName": "informacje",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "enrichment_status",
+              "displayName": "enrichment_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "error_detail",
+              "displayName": "error_detail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "enrichment_date",
+              "displayName": "enrichment_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "search_query",
+              "displayName": "search_query",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "8d0c49eb-916f-443f-ab49-fca0fb8a0919",
+      "name": "Log not found",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [
+        848,
+        784
+      ],
+      "typeVersion": 4.7,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "xRjT1l3946S3SH7Q",
+          "name": "juliajakubowska.biznes"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const orig = $('Prepare your search').item.json;\nconst searchError = $json.error || '';\n\nreturn {\n  email: orig.email,\n  first_name: orig.first_name,\n  last_name: orig.last_name,\n  linkedin_url: '',\n  kraj: '',\n  rola: '',\n  firma: '',\n  link_do_firmy: '',\n  kiedy_zaczeto_firme: '',\n  informacje: '',\n  source: '',\n  enrichment_status: searchError ? 'api_error' : 'not_found',\n  error_detail: searchError,\n  search_query: orig.search_query || '',\n  enrichment_date: new Date().toISOString()\n};\n"
+      },
+      "id": "d8bec272-fbd8-45de-a6f8-0dd6afeefa48",
+      "name": "Not found",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        400,
+        880
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "sendBody": true,
+        "bodyJson": "={{\n({\n  organizationId: 'ID',\n  tenantId: 'ID',\n  firstName: $json.first_name || '',\n  lastName: $json.last_name || 'Unknown',\n  displayName: (($json.first_name || '') + ' ' + ($json.last_name || 'Unknown')).trim(),\n  primaryEmail: $json.email || '',\n  jobTitle: $json.rola || '',\n  source: $('Source Act (Touchpoint)').item.json.custom_source || '',\n  linkedInUrl: $json.linkedin_url || ''\n})\n}}",
+        "requestOptions": {}
+      },
+      "type": "CUSTOM.openMercato",
+      "typeVersion": 1,
+      "position": [
+        1216,
+        464
+      ],
+      "id": "4de9b2d2-93b9-493b-bec3-992c5ade887b",
+      "name": "Add a person to Open Mercato",
+      "credentials": {
+        "openMercatoApi": {
+          "id": "OomEwoZrssFwIgkV",
+          "name": "julia srv1023004"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "path": "/api/customers/companies",
+        "sendBody": true,
+        "bodyJson": "={{\n({\norganizationId: 'ID',\ntenantId: 'ID',\ndisplayName: (($('Save to Sheets').item.json.firma || '').split(' | ')[0] || 'Brak nazwy firmy').trim()\n})\n}}",
+        "requestOptions": {}
+      },
+      "type": "CUSTOM.openMercato",
+      "typeVersion": 1,
+      "position": [
+        1424,
+        464
+      ],
+      "id": "8356c5b8-d0d6-4000-a15e-d4b63fc8bea8",
+      "name": "Add your business to Open Mercato",
+      "credentials": {
+        "openMercatoApi": {
+          "id": "OomEwoZrssFwIgkV",
+          "name": "julia srv1023004"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "sendBody": true,
+        "bodyJson": "={{\n({\norganizationId: 'ID',\ntenantId: 'ID',\nid: $('Add a person to Open Mercato').item.json.id,\ncompanyEntityId: $('Add your business to Open Mercato').item.json.id\n})\n}}",
+        "requestOptions": {}
+      },
+      "type": "CUSTOM.openMercato",
+      "typeVersion": 1,
+      "position": [
+        1584,
+        464
+      ],
+      "id": "46db2c67-7170-49e1-9ca6-8d6e2583e797",
+      "name": "Connect a person with a business on Open Mercato",
+      "credentials": {
+        "openMercatoApi": {
+          "id": "OomEwoZrssFwIgkV",
+          "name": "julia srv1023004"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "if ($json.error) {\n  return {\n    matched: false,\n    linkedin_url: '',\n    error: ($json.error || '') + ' (statusCode: ' + ($json.statusCode || '') + ')'\n  };\n}\n\nconst orig = $('Prepare your search').item.json;\nconst firstName = (orig.first_name || '').toLowerCase();\nconst lastName = (orig.last_name || '').toLowerCase();\nconst companyHint = (orig.company_hint || '').toLowerCase();\n\nconst items = ($json.organic || []).map(r => ({\n  link: r.link || '',\n  title: r.title || '',\n  snippet: r.snippet || ''\n}));\n\nif (items.length === 0) {\n  return { matched: false, linkedin_url: '', search_title: '', search_snippet: '' };\n}\n\nlet bestMatch = null;\nlet bestScore = -1;\n\nfor (const item of items) {\n  if (!item.link || !item.link.includes('linkedin.com/in/')) continue;\n\n  let score = 0;\n  const title = item.title.toLowerCase();\n  const snippet = item.snippet.toLowerCase();\n\n  if (firstName && title.includes(firstName)) score += 3;\n  if (lastName && title.includes(lastName)) score += 3;\n  if (companyHint && title.includes(companyHint)) score += 5;\n  if (companyHint && snippet.includes(companyHint)) score += 2;\n\n  if (score > bestScore) {\n    bestScore = score;\n    bestMatch = item;\n  }\n}\n\nif (!bestMatch || bestScore < 3) {\n  return { matched: false, linkedin_url: '', search_title: '', search_snippet: '' };\n}\n\nreturn {\n  matched: true,\n  linkedin_url: bestMatch.link || '',\n  search_title: bestMatch.title || '',\n  search_snippet: (bestMatch.snippet || '').substring(0, 200),\n  match_score: bestScore\n};"
+      },
+      "id": "fd54ae31-c686-4e2a-894e-44740de6c47d",
+      "name": "Choose the best match",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        -272,
+        800
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://google.serper.dev/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "__SERPER_API_KEY__"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ q: $json.search_query, num: 5 }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "d5280e6a-b7d6-4b2e-b746-ea3ea5f9517b",
+      "name": "Serper - Search on LinkedIn",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        -496,
+        800
+      ],
+      "typeVersion": 4.2,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Source Act (Touchpoint)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 2s": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Drive Trigger": {
+      "main": [
+        [
+          {
+            "node": "Download file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Source Act (Touchpoint)": {
+      "main": [
+        [
+          {
+            "node": "Prepare your search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare your search": {
+      "main": [
+        [
+          {
+            "node": "Serper - Search on LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Profile found?": {
+      "main": [
+        [
+          {
+            "node": "Apify - Profile by URL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Not found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apify - Profile by URL": {
+      "main": [
+        [
+          {
+            "node": "Map data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Map data": {
+      "main": [
+        [
+          {
+            "node": "Save to Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Sheets": {
+      "main": [
+        [
+          {
+            "node": "Add a person to Open Mercato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log not found": {
+      "main": [
+        [
+          {
+            "node": "Wait 2s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Not found": {
+      "main": [
+        [
+          {
+            "node": "Log not found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add a person to Open Mercato": {
+      "main": [
+        [
+          {
+            "node": "Add your business to Open Mercato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add your business to Open Mercato": {
+      "main": [
+        [
+          {
+            "node": "Connect a person with a business on Open Mercato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Connect a person with a business on Open Mercato": {
+      "main": [
+        [
+          {
+            "node": "Wait 2s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Choose the best match": {
+      "main": [
+        [
+          {
+            "node": "Profile found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Serper - Search on LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "Choose the best match",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "b656e351-0dcc-4cf5-b643-fab941abd8d8",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "06b26028d74b683d000c3597051066c4c8a2fb419019d4a540be5bbd83ec849e"
+  },
+  "id": "d2XZStJdHuVNprov",
+  "tags": []
+}
