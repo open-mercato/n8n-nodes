@@ -1,0 +1,673 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// === COMPUTE FINAL SCORES ===\n// Przelicza LLM output (level, impactBonus:bool, bountyApplied:bool)\n// na format wymagany przez OM Import API:\n//   wicScore:number, impactBonus:number, bountyBonus:number\n//\n// Formula z app-spec Macieja:\n//   base_score = { L4:1.0, L3:0.5, L2:1.0, L1:0.25, routine:0.0 }\n//   impact_bonus = +0.25 (scope: >=40 files) + 0.25 (completeness: testy)\n//   wic_pre_bounty = base_score + impact_bonus\n//   bountyBonus = wic_pre_bounty * 0.5 (jesli bounty applied)\n//   wicScore = wic_pre_bounty + bountyBonus\n\nconst BASE_SCORES = { L4: 1.0, L3: 0.5, L2: 1.0, L1: 0.25, routine: 0.0 };\n\nconst items = $input.all();\nconst originals = $('Expand Contribution Candidates1').all();\n\nreturn items.map((item, index) => {\n  const r = item.json;\n  const orig = originals[index]?.json ?? {};\n\n  // 1. Base score z poziomu\n  const baseScore = BASE_SCORES[r.level] ?? 0;\n\n  // 2. Impact bonus — przelicz z boolean na number\n  let impactBonus = 0;\n  if (r.impactBonus === true) {\n    const scopeBonus = (orig.uniqueFilesCount ?? 0) >= 40 ? 0.25 : 0;\n    const hasTests = (orig.files ?? []).some(f =>\n      /\\.test\\.|\\.spec\\.|__tests__|__integration__/.test(f)\n    );\n    const completenessBonus = hasTests ? 0.25 : 0;\n    impactBonus = scopeBonus + completenessBonus;\n    // LLM powiedzial true — minimum 0.25\n    if (impactBonus === 0) impactBonus = 0.25;\n  }\n\n  // 3. Bounty bonus\n  const wicPreBounty = baseScore + impactBonus;\n  const bountyBonus = r.bountyApplied === true\n    ? Math.round(wicPreBounty * 0.5 * 100) / 100\n    : 0;\n\n  // 4. Final WIC score\n  const wicScore = Math.round((wicPreBounty + bountyBonus) * 100) / 100;\n\n  // 5. Included / excluded\n  const prIds = orig.prIds ?? [r.prId];\n  const included = prIds.map(id => `#${id}`).join(', ') +\n    (orig.titlesStr ? ` — ${orig.titlesStr}` : '');\n\n  // 6. Why bonus\n  const whyParts = [];\n  if (impactBonus > 0) {\n    if ((orig.uniqueFilesCount ?? 0) >= 40) whyParts.push(`scope: ${orig.uniqueFilesCount} files`);\n    if ((orig.files ?? []).some(f => /\\.test\\.|\\.spec\\.|__tests__|__integration__/.test(f))) {\n      whyParts.push('completeness: tests present');\n    }\n  }\n  if (r.bountyApplied) whyParts.push('bounty: 1.5x multiplier');\n\n  return {\n    json: {\n      contributorGithubUsername: r.contributorGithubUsername,\n      month: r.month,\n      wicScore,\n      level: r.level,\n      impactBonus: Math.round(impactBonus * 100) / 100,\n      bountyBonus,\n      whyBonus: whyParts.join('; '),\n      included: included.slice(0, 2000),\n      excluded: '',\n      scriptVersion: 'n8n-wic-v1.0',\n      _rationale: r.rationale || ''\n    }\n  };\n});"
+      },
+      "id": "e7560396-2fd8-46ab-93e6-5af5dc01f97c",
+      "name": "Compute Final Scores",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2368,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// === BUILD WIC IMPORT BATCH ===\n// Grupuje assessments per organizacja.\n// OM API wymaga jednego POST per org+month.\n//\n// KONFIGURACJA: Mapowanie GitHub username -> organizationId (UUID z OM).\n// Uzupelnij prawdziwe UUID po sprawdzeniu w OM.\nconst ORG_MAP = {\n  'pkarw': 'UZUPELNIJ-UUID-ORGANIZACJI-PKARW',\n  'matgren': 'UZUPELNIJ-UUID-ORGANIZACJI-MATGREN'\n};\n\nconst all = $input.all().map(item => item.json);\nconst month = all[0]?.month ?? new Date().toISOString().slice(0, 7);\n\n// Grupuj per org\nconst byOrg = new Map();\nconst unmapped = [];\n\nfor (const a of all) {\n  const orgId = ORG_MAP[a.contributorGithubUsername];\n  if (!orgId || orgId.startsWith('UZUPELNIJ')) {\n    unmapped.push(a.contributorGithubUsername);\n    continue;\n  }\n  if (!byOrg.has(orgId)) byOrg.set(orgId, []);\n  byOrg.get(orgId).push({\n    contributorGithubUsername: a.contributorGithubUsername,\n    month: a.month,\n    wicScore: a.wicScore,\n    level: a.level,\n    impactBonus: a.impactBonus,\n    bountyBonus: a.bountyBonus,\n    whyBonus: a.whyBonus || '',\n    included: a.included || '',\n    excluded: a.excluded || '',\n    scriptVersion: a.scriptVersion || 'n8n-wic-v1.0'\n  });\n}\n\nif (unmapped.length > 0) {\n  throw new Error(\n    'Brak organizationId w ORG_MAP dla: ' +\n    [...new Set(unmapped)].join(', ') +\n    '. Uzupelnij ORG_MAP w nodzie Build WIC Import Batch.'\n  );\n}\n\n// Jeden item per org = jeden POST\nreturn Array.from(byOrg.entries()).map(([orgId, records]) => ({\n  json: {\n    organizationId: orgId,\n    month,\n    source: 'automated_pipeline',\n    records\n  }\n}));"
+      },
+      "id": "3d2453b4-a035-4491-bf40-243d0fe95406",
+      "name": "Build WIC Import Batch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2096,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openmercato.srv1023004.hstgr.cloud/api/partnerships/wic/import",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1
+            }
+          },
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "56d4f729-5c64-4deb-b421-2e1fa3844a91",
+      "name": "POST to OM Import API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1824,
+        -80
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 2 * * *"
+            }
+          ]
+        }
+      },
+      "id": "c9219850-54d1-41a8-b3c4-916118dc85c0",
+      "name": "Schedule Trigger1",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -6176,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// === CONFIGURATION ===\n// Dodaj GitHub loginy kontrybutorów do oceny.\n// Kazdy profil dostanie osobne query do GitHuba (petla).\n// When OM API is ready, replace with fetch from /api/contributors.\nconst PROFILES = ['pkarw', 'matgren'];\nconst REPO = 'open-mercato/open-mercato';\n// === END CONFIGURATION ===\n\nconst now = new Date();\nconst monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));\nconst fromIso = monthStart.toISOString();\n\nreturn [{\n  json: {\n    repoFullName: REPO,\n    profiles: PROFILES,\n    month: now.toISOString().slice(0, 7),\n    fromIso,\n    toIso: now.toISOString(),\n    generatedAt: now.toISOString(),\n    bountySearchQuery: `repo:${REPO} is:issue label:bounty`\n  }\n}];"
+      },
+      "id": "0bc5514f-c1d0-4f7b-8261-ad6cd766a737",
+      "name": "Set Period Context1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5904,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Rozbija PROFILES na osobne itemy — kazdy profil leci osobno przez GitHub query.\n// Zeby dodac wiecej osob, edytuj PROFILES w Set Period Context.\nconst ctx = $input.first().json;\nreturn ctx.profiles.map(profile => ({\n  json: {\n    ...ctx,\n    currentProfile: profile,\n    prSearchQuery: `repo:${ctx.repoFullName} is:pr is:merged merged:>=${ctx.fromIso} author:${profile}`,\n    unmergedPrSearchQuery: `repo:${ctx.repoFullName} is:pr -is:merged updated:>=${ctx.fromIso} author:${profile}`,\n    issuesSearchQuery: `repo:${ctx.repoFullName} is:issue -label:bounty created:>=${ctx.fromIso} author:${profile}`\n  }\n}));"
+      },
+      "id": "918deda3-f1eb-4295-a42c-dfeb5c594dc3",
+      "name": "Split Profiles1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5632,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "endpoint": "https://api.github.com/graphql",
+        "query": "query($query: String!) {\n  search(query: $query, type: ISSUE, first: 100) {\n    nodes {\n      ... on PullRequest {\n        number\n        title\n        body\n        url\n        state\n        author { login }\n        mergedAt\n        additions\n        deletions\n        changedFiles\n        labels(first: 10) { nodes { name } }\n        files(first: 50) { nodes { path } }\n        reviews(first: 10) { nodes { state author { login } } }\n        closingIssuesReferences(first: 10) {\n          nodes {\n            number\n            title\n            body\n            url\n            labels(first: 10) { nodes { name } }\n          }\n        }\n      }\n    }\n  }\n}",
+        "variables": "={{ JSON.stringify({ query: $json.prSearchQuery }) }}"
+      },
+      "id": "f2e2a911-8621-4426-86d7-f1ec4de10c53",
+      "name": "GitHub PR Search1",
+      "type": "n8n-nodes-base.graphql",
+      "typeVersion": 1.1,
+      "position": [
+        -5360,
+        -80
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "endpoint": "https://api.github.com/graphql",
+        "query": "query($query: String!) {\n  search(query: $query, type: ISSUE, first: 100) {\n    nodes {\n      ... on PullRequest {\n        number\n        title\n        body\n        url\n        state\n        author { login }\n        mergedAt\n        additions\n        deletions\n        changedFiles\n        labels(first: 10) { nodes { name } }\n        files(first: 50) { nodes { path } }\n        reviews(first: 10) { nodes { state author { login } } }\n        closingIssuesReferences(first: 10) {\n          nodes {\n            number\n            title\n            body\n            url\n            labels(first: 10) { nodes { name } }\n          }\n        }\n      }\n    }\n  }\n}",
+        "variables": "={{ JSON.stringify({ query: $('Split Profiles1').item.json.unmergedPrSearchQuery }) }}"
+      },
+      "id": "485c67e8-acf7-47e3-a250-580ed7a99900",
+      "name": "GitHub Unmerged PR Search1",
+      "type": "n8n-nodes-base.graphql",
+      "typeVersion": 1.1,
+      "position": [
+        -5088,
+        -80
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "endpoint": "https://api.github.com/graphql",
+        "query": "query($query: String!) {\n  search(query: $query, type: ISSUE, first: 100) {\n    nodes {\n      ... on Issue {\n        number\n        title\n        body\n        url\n        state\n        author { login }\n        createdAt\n        closedAt\n        labels(first: 10) { nodes { name } }\n      }\n    }\n  }\n}",
+        "variables": "={{ JSON.stringify({ query: $('Split Profiles1').item.json.issuesSearchQuery }) }}"
+      },
+      "id": "fdd15b45-2a52-4159-a76e-07ac1ddb2409",
+      "name": "GitHub Issues Search1",
+      "type": "n8n-nodes-base.graphql",
+      "typeVersion": 1.1,
+      "position": [
+        -4816,
+        -80
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "endpoint": "https://api.github.com/graphql",
+        "query": "query($query: String!) {\n  search(query: $query, type: ISSUE, first: 100) {\n    nodes {\n      ... on Issue {\n        number\n        title\n        body\n        url\n        state\n        createdAt\n        closedAt\n        labels(first: 10) { nodes { name } }\n      }\n    }\n  }\n}",
+        "variables": "={{ JSON.stringify({ query: $('Split Profiles1').item.json.bountySearchQuery }) }}"
+      },
+      "id": "bd49f59e-f6cb-4a91-9e42-b47bcff345e6",
+      "name": "GitHub Bounty Search1",
+      "type": "n8n-nodes-base.graphql",
+      "typeVersion": 1.1,
+      "position": [
+        -4544,
+        -80
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Iteruje po WSZYSTKICH profilach — .all() + index\nconst allProfiles = $('Split Profiles1').all();\nconst allPr = $('GitHub PR Search1').all();\nconst allUnmerged = $('GitHub Unmerged PR Search1').all();\nconst allIssues = $('GitHub Issues Search1').all();\nconst allBounty = $('GitHub Bounty Search1').all();\n\n// Zbierz errors ze wszystkich profili\nconst errors = [];\nfor (let i = 0; i < allProfiles.length; i++) {\n  for (const resp of [allPr[i]?.json, allUnmerged[i]?.json, allIssues[i]?.json, allBounty[i]?.json]) {\n    if (resp?.errors) errors.push(...resp.errors);\n  }\n}\nif (errors.length > 0) {\n  throw new Error('GitHub GraphQL returned errors: ' + JSON.stringify(errors.slice(0, 3)));\n}\n\n// Polacz dane ze wszystkich profili\nlet allMergedPrs = [];\nlet allUnmergedPrs = [];\nlet allBountyIssues = [];\nlet allAuthoredIssues = [];\n\nfor (let i = 0; i < allProfiles.length; i++) {\n  allMergedPrs.push(...(allPr[i]?.json?.data?.search?.nodes ?? []).filter(Boolean));\n  allUnmergedPrs.push(...(allUnmerged[i]?.json?.data?.search?.nodes ?? []).filter(Boolean));\n  allBountyIssues.push(...(allBounty[i]?.json?.data?.search?.nodes ?? []).filter(Boolean));\n  allAuthoredIssues.push(...(allIssues[i]?.json?.data?.search?.nodes ?? []).filter(Boolean));\n}\n\n// Deduplikuj bounty po numerze\nconst bountyMap = new Map();\nallBountyIssues.forEach(b => bountyMap.set(b.number, b));\nallBountyIssues = Array.from(bountyMap.values());\n\nconst period = allProfiles[0].json;\nconst mergedPrs = allMergedPrs;\nconst unmergedPrs = allUnmergedPrs;\nconst bountyIssues = allBountyIssues;\nconst authoredIssues = allAuthoredIssues;\nconst fromDate = new Date(period.fromIso);\n\nconst bountyByNumber = new Map();\nfor (const issue of bountyIssues) {\n  const issueDate = issue.closedAt ? new Date(issue.closedAt) : new Date(issue.createdAt || 0);\n  if (issue.state === 'OPEN' || issueDate >= fromDate) {\n    bountyByNumber.set(String(issue.number), {\n      number: String(issue.number),\n      title: issue.title || '',\n      body: issue.body || '',\n      state: issue.state || 'OPEN',\n      labels: (issue.labels?.nodes ?? []).map(label => label.name),\n      url: issue.url || ''\n    });\n  }\n}\n\nfunction uniqueStrings(values) {\n  return Array.from(new Set(values.filter(Boolean).map(value => String(value))));\n}\n\nfunction extractIssueNumbers(text) {\n  if (!text || typeof text !== 'string') return [];\n  const matches = text.match(/#(\\d+)/g) ?? [];\n  return uniqueStrings(matches.map(match => match.replace('#', '')));\n}\n\nfunction hasApprovedReview(pr) {\n  return (pr.reviews?.nodes ?? []).some(r => r.state === 'APPROVED');\n}\n\nfunction normalizePr(pr, isUnmergedApproved) {\n  const files = (pr.files?.nodes ?? []).map(f => f.path).filter(Boolean);\n  const labels = (pr.labels?.nodes ?? []).map(l => l.name).filter(Boolean);\n  const reviews = (pr.reviews?.nodes ?? []).map(r => `${r.author?.login || 'unknown'}: ${r.state}`);\n  const linkedIssues = (pr.closingIssuesReferences?.nodes ?? []).map(issue => ({\n    number: String(issue.number),\n    title: issue.title || '',\n    body: issue.body || '',\n    url: issue.url || '',\n    labels: (issue.labels?.nodes ?? []).map(l => l.name).filter(Boolean)\n  }));\n  const referencedIssueNumbers = uniqueStrings([\n    ...linkedIssues.map(i => i.number),\n    ...extractIssueNumbers(pr.title || ''),\n    ...extractIssueNumbers(pr.body || '')\n  ]);\n  const bountyCandidates = referencedIssueNumbers\n    .map(n => bountyByNumber.get(n))\n    .filter(Boolean);\n\n  return {\n    recordType: 'pull_request',\n    isUnmergedApproved,\n    contributorGithubUsername: pr.author?.login ?? 'unknown',\n    prId: String(pr.number),\n    title: pr.title || '',\n    body: (pr.body || '').slice(0, 2000),\n    month: period.month,\n    mergedAt: pr.mergedAt || null,\n    createdAt: null,\n    additions: pr.additions ?? 0,\n    deletions: pr.deletions ?? 0,\n    changedFiles: pr.changedFiles ?? 0,\n    files,\n    filesStr: files.slice(0, 30).join(', '),\n    labels,\n    labelsStr: labels.join(', '),\n    reviews,\n    reviewsStr: reviews.join('; '),\n    linkedIssues,\n    linkedIssuesStr: linkedIssues.map(i => `#${i.number} ${i.title}`).join('; '),\n    referencedIssueNumbers,\n    bountyCandidates,\n    bountyContextStr: bountyCandidates.map(i => `#${i.number} ${i.title}`).join('; ')\n  };\n}\n\nconst mergedRecords = mergedPrs\n  .filter(pr => pr.mergedAt && pr.author?.login)\n  .map(pr => normalizePr(pr, false));\n\nconst unmergedRecords = unmergedPrs\n  .filter(pr => !pr.mergedAt && pr.author?.login && hasApprovedReview(pr))\n  .map(pr => normalizePr(pr, true));\n\nconst issueRecords = authoredIssues\n  .filter(issue => issue.author?.login && !bountyByNumber.has(String(issue.number)))\n  .map(issue => ({\n    recordType: 'issue',\n    isUnmergedApproved: false,\n    contributorGithubUsername: issue.author?.login ?? 'unknown',\n    prId: String(issue.number),\n    title: issue.title || '',\n    body: (issue.body || '').slice(0, 2000),\n    month: period.month,\n    mergedAt: null,\n    createdAt: issue.createdAt,\n    additions: 0,\n    deletions: 0,\n    changedFiles: 0,\n    files: [],\n    filesStr: '',\n    labels: (issue.labels?.nodes ?? []).map(l => l.name).filter(Boolean),\n    labelsStr: (issue.labels?.nodes ?? []).map(l => l.name).filter(Boolean).join(', '),\n    reviews: [],\n    reviewsStr: '',\n    linkedIssues: [],\n    linkedIssuesStr: '',\n    referencedIssueNumbers: [],\n    bountyCandidates: [],\n    bountyContextStr: ''\n  }));\n\nconst seenNumbers = new Set();\nconst allRecords = [];\nfor (const r of [...mergedRecords, ...unmergedRecords, ...issueRecords]) {\n  if (!seenNumbers.has(r.prId)) {\n    seenNumbers.add(r.prId);\n    allRecords.push(r);\n  }\n}\n\nallRecords.sort((a, b) => new Date(a.mergedAt || a.createdAt || 0) - new Date(b.mergedAt || b.createdAt || 0));\n\nreturn [{\n  json: {\n    month: period.month,\n    fromIso: period.fromIso,\n    toIso: period.toIso,\n    generatedAt: period.generatedAt,\n    repoFullName: period.repoFullName,\n    profiles: period.profiles,\n    records: allRecords\n  }\n}];"
+      },
+      "id": "817f6451-ca4a-4d80-b020-3918f7caa995",
+      "name": "Normalize Raw Data1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4272,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst records = input.records ?? [];\n\nfunction firstMatch(regex, values) {\n  for (const value of values) {\n    if (!value) continue;\n    const match = String(value).match(regex);\n    if (match) return match[1] || match[0];\n  }\n  return '';\n}\n\nfunction sanitizeFeatureKey(value) {\n  return String(value || '')\n    .trim()\n    .replace(/\\s+/g, '-')\n    .replace(/[^A-Za-z0-9#_-]/g, '')\n    .slice(0, 80);\n}\n\nconst recordsWithFeatureKeys = records.map(record => {\n  const explicitKey = firstMatch(/\\b([A-Z][A-Z0-9]{0,15}-\\d+|WF\\d+|PRD[_]\\d+)\\b/, [\n    record.title,\n    record.body,\n    ...(record.files || [])\n  ]);\n\n  const hashRef = firstMatch(/#(\\d+)/, [record.title]);\n\n  let featureKey = '';\n  let featureKeySource = '';\n\n  if (explicitKey) {\n    featureKey = sanitizeFeatureKey(explicitKey);\n    featureKeySource = 'explicit';\n  } else if (hashRef && !explicitKey) {\n    featureKey = `ISSUE-${hashRef}`;\n    featureKeySource = 'explicit_hash';\n  } else if ((record.linkedIssues || []).length > 0) {\n    featureKey = `ISSUE-${record.linkedIssues[0].number}`;\n    featureKeySource = 'issue';\n  } else {\n    featureKey = record.recordType === 'issue' ? `ISSUE-${record.prId}` : `PR-${record.prId}`;\n    featureKeySource = 'fallback';\n  }\n\n  return {\n    ...record,\n    featureKey,\n    featureKeySource\n  };\n});\n\nreturn [{\n  json: {\n    ...input,\n    records: recordsWithFeatureKeys\n  }\n}];"
+      },
+      "id": "0e74fcdb-c1c4-49e0-9e8d-9d23920903f4",
+      "name": "Derive Feature Keys1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4000,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst records = (input.records ?? []).slice().sort((a, b) => new Date(a.mergedAt || a.createdAt || 0) - new Date(b.mergedAt || b.createdAt || 0));\n\nconst groups = new Map();\n\nfor (const record of records) {\n  const key = [record.contributorGithubUsername, record.month, record.featureKey].join('::');\n\n  if (!groups.has(key)) {\n    groups.set(key, {\n      contributorGithubUsername: record.contributorGithubUsername,\n      month: record.month,\n      featureKeyCandidate: record.featureKey,\n      featureKeySource: record.featureKeySource,\n      anchorPrId: record.prId,\n      prIds: [],\n      titles: [],\n      bodies: [],\n      recordTypes: [],\n      files: new Set(),\n      reviews: new Set(),\n      linkedIssues: new Map(),\n      bountyCandidates: new Map(),\n      additionsTotal: 0,\n      deletionsTotal: 0,\n      changedFilesTotal: 0,\n      dateFirst: record.mergedAt || record.createdAt,\n      dateLast: record.mergedAt || record.createdAt\n    });\n  }\n\n  const group = groups.get(key);\n  group.prIds.push(record.prId);\n  group.titles.push(record.title);\n  group.bodies.push((record.body || '').slice(0, 500));\n  group.recordTypes.push(record.recordType || 'pull_request');\n  for (const file of record.files || []) group.files.add(file);\n  for (const review of record.reviews || []) group.reviews.add(review);\n  for (const issue of record.linkedIssues || []) group.linkedIssues.set(issue.number, issue);\n  for (const bounty of record.bountyCandidates || []) group.bountyCandidates.set(bounty.number, bounty);\n  group.additionsTotal += Number(record.additions || 0);\n  group.deletionsTotal += Number(record.deletions || 0);\n  group.changedFilesTotal += Number(record.changedFiles || 0);\n  const recordDate = record.mergedAt || record.createdAt;\n  if (recordDate) group.dateLast = recordDate;\n}\n\nconst serializedGroups = Array.from(groups.values()).map(group => {\n  const files = Array.from(group.files);\n  const reviews = Array.from(group.reviews);\n  const linkedIssues = Array.from(group.linkedIssues.values());\n  const bountyCandidates = Array.from(group.bountyCandidates.values());\n  const hasIssueRecords = group.recordTypes.includes('issue');\n\n  return {\n    contributorGithubUsername: group.contributorGithubUsername,\n    month: group.month,\n    featureKeyCandidate: group.featureKeyCandidate,\n    featureKeySource: group.featureKeySource,\n    anchorPrId: group.anchorPrId,\n    prIds: group.prIds,\n    prIdsStr: group.prIds.join(', '),\n    prCount: group.prIds.length,\n    titles: group.titles,\n    titlesStr: group.titles.join(' | '),\n    bodiesStr: group.bodies.filter(Boolean).join('\\n---\\n').slice(0, 2000),\n    recordTypes: [...new Set(group.recordTypes)],\n    hasIssueRecords,\n    additionsTotal: group.additionsTotal,\n    deletionsTotal: group.deletionsTotal,\n    changedFilesTotal: group.changedFilesTotal,\n    uniqueFilesCount: files.length,\n    files,\n    filesStr: files.slice(0, 40).join(', '),\n    reviews,\n    reviewsStr: reviews.join('; '),\n    linkedIssues,\n    linkedIssuesStr: linkedIssues.map(issue => `#${issue.number} ${issue.title}`).join('; '),\n    bountyCandidates,\n    bountyContextStr: bountyCandidates.length\n      ? bountyCandidates.map(issue => `#${issue.number} ${issue.title}`).join('; ')\n      : 'NONE',\n    dateFirst: group.dateFirst,\n    dateLast: group.dateLast\n  };\n});\n\nreturn [{\n  json: {\n    month: input.month,\n    hasCandidates: serializedGroups.length > 0,\n    groups: serializedGroups\n  }\n}];"
+      },
+      "id": "bd37bb3d-82ef-4fa3-8ddd-0ada6e6b60e7",
+      "name": "Group by Contribution Unit1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3728,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "d9ee0a57-91d4-4205-a663-68516d4f64f7",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.hasCandidates }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "18db8bb7-4901-4e36-9ed0-894f89d2f96c",
+      "name": "Has Contribution Candidates1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -3456,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const groups = $input.first().json.groups ?? [];\n\n// Auto-filtr: oczywiste routine odrzucamy BEZ LLM (oszczednosc tokenow).\n// Reszta idzie do AI do oceny.\nconst ROUTINE_PATTERNS = /^(chore|release|bump|version|changelog|merge branch|update dep|renovate|dependabot)/i;\n\nconst forLlm = [];\nconst autoRoutine = [];\n\nfor (const g of groups) {\n  const titles = (g.titlesStr || '').toLowerCase();\n  const isSmall = g.additionsTotal < 15 && g.changedFilesTotal <= 2;\n  const isBump = ROUTINE_PATTERNS.test(g.titlesStr || '');\n  const isChangelog = (g.files || []).every(f => /changelog|package.json|yarn.lock|pnpm-lock/i.test(f));\n\n  if (isBump || (isSmall && isChangelog)) {\n    autoRoutine.push({ json: { ...g, autoLevel: 'routine' } });\n  } else {\n    forLlm.push({ json: g });\n  }\n}\n\n// Auto-routine items przejda bezposrednio do Parse LLM Output jako routine.\n// Tylko forLlm idzie do AI.\nreturn forLlm;"
+      },
+      "id": "759ded29-4273-44ad-a99a-73066e937d5f",
+      "name": "Expand Contribution Candidates1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3184,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Jestes oceniajacym WIC (Wildly Important Contribution) dla Open Mercato.\nBadz deterministyczny i obiektywny. Oceniasz JEDNA zgrupowana prace jednej osoby w jednym miesiacu.\nJesli dane sa niejednoznaczne, ZAWSZE wybierz nizsza ocene.\nNie wymyslaj nowych zasad.\n\nTABELA PUNKTACJI:\n- L4 (1.0 pkt): Complete Core Module / New Feature + Spec + Implementation\n- L3 (0.5 pkt): Comprehensive Feature Spec (sam dokument specyfikacji)\n- L2 (1.0 pkt): Major PoC / Industry Prototype\n- L1 (0.5 pkt): Complex Bug / Deep Refactor (duzy refactoring, trudne bugi)\n- L1 (0.25 pkt): Small fix / hardening / accepted bug report\n- routine (0 pkt): Routine maintenance, update deps, version bump, drobnostki\n\nKRYTYCZNE ZASADY OCENIANIA:\n- L4 to NAJWYZSZA ocena i powinna byc RZADKA. L4 oznacza CALY NOWY MODUL lub DUZA NOWA FUNKCJE z pisemna specyfikacja I implementacja. Przyklad: nowy system platnosci, nowy modul autoryzacji od zera, nowy silnik workflow.\n- L4 NIE oznacza: kazdy PR ktory pisze kod. Samo pisanie kodu to implementacja, NIE spec+impl.\n- Spec+impl = ktos napisal DOKUMENT SPECYFIKACJI (spec file, design doc, ADR) ORAZ zaimplementowal to w kodzie. Sam kod bez dokumentu specyfikacji to NIE jest spec+impl.\n- Wiekszosc wartosciowej pracy to L1 (bugfixy, refactory, male ulepszenia). To jest NORMALNE.\n- L2 to duzy Proof of Concept lub prototyp dla nowej branzy/integracji — duza ilosc kodu o umiarkowanej zlozonosci.\n- L3 to sam dokument specyfikacji bez implementacji — ogromna i merytoryczna specyfikacja.\n- Jesli PR ma <200 linii i nie tworzy calkowicie nowego modulu, to PRAWIE NA PEWNO nie jest L4.\n- Release / version bump / changelog = routine, 0 pkt.\n- Male zmiany bez znaczenia architektonicznego = routine.\n- W razie watpliwosci miedzy dwoma poziomami, ZAWSZE wybierz nizszy.\n- Jesli recordType zawiera 'issue' (bez kodu, sam opis/spec), max ocena to L3.\n\nIMPACT BONUS (max +0.5) — z app-spec Macieja:\n- +0.25 za scope: jesli uniqueFilesCount >= 40, MUSISZ przyznac bonus za scope. To jest TWARDA REGULA, nie uznaniowa.\n- +0.25 za completeness: jesli w plikach widoczne sa pliki testowe (.test., .spec., __tests__, __integration__), przyznaj bonus za completeness.\n- impactBonus = true jesli KTÓRYKOLWIEK z powyzszych warunkow jest spelniony.\n- WAZNE: sprawdz uniqueFilesCount LICZBOWO. Jesli >= 40, scope bonus jest AUTOMATYCZNY.\n\nBOUNTY (mnoznik 1.5x):\n- bountyApplied = true TYLKO jesli praca BEZPOSREDNIO realizuje konkretne bounty issue\n- jesli bountyApplied = true, koncowy wynik jest mnozony x1.5\n- NIE zgaduj bounty po samym podobienstwie slow — musisz widziec dowod w danych\n- Nie dodawaj bounty dla nowych funkcji jesli bounty dotyczy refactoringu/DRY\n\nFEATURE KEY:\n- jesli featureKeyCandidate wyglada sensownie, zachowaj go\n- jesli nic lepszego nie widzisz, zachowaj featureKeyCandidate bez zmian\n- nie tworz kreatywnego klucza bez mocnego dowodu w danych\n\nTEST KALIBRACYJNY (z Wic Assessment Guide Macieja):\nPo ocenie zadaj sobie pytanie: Gdyby ta osoba zrobila dla nas TYLKO TO JEDNO w tym miesiacu, czy realnie pchnelaby projekt do przodu?\n- Jesli TAK — zostaw pelny wynik.\n- Jesli masz WATPLIWOSCI — przytnij do L1 (0.25).\n- Nigdy nie dodawaj punktow za dobre checi czy sama koncepcje.\n- Jesli kod jest nie zmergowany i nie ma jawnej aprobaty Core Teamu — 0 pkt.\n\nDANE GRUPY:\n- Autor: {{ $json.contributorGithubUsername }}\n- Miesiac: {{ $json.month }}\n- Typy rekordow: {{ $json.recordTypes }}\n- Wstepny featureKey: {{ $json.featureKeyCandidate }}\n- Zrodlo featureKey: {{ $json.featureKeySource }}\n- Kotwiczacy PR/Issue: {{ $json.anchorPrId }}\n- Wszystkie PRy/Issues: {{ $json.prIdsStr }}\n- Liczba: {{ $json.prCount }}\n- Tytuly: {{ $json.titlesStr }}\n- Opisy PR/Issue: {{ $json.bodiesStr }}\n- Linked issues: {{ $json.linkedIssuesStr }}\n- Bounty context: {{ $json.bountyContextStr }}\n- Stats: +{{ $json.additionsTotal }} -{{ $json.deletionsTotal }}, {{ $json.changedFilesTotal }} plikow zmienionych, {{ $json.uniqueFilesCount }} unikatowych plikow\n- Pliki: {{ $json.filesStr }}\n- Reviews: {{ $json.reviewsStr }}\n\nZwroc TYLKO czysty JSON:\n{\"level\":\"L4|L3|L2|L1|routine\",\"impactBonus\":true|false,\"bountyApplied\":true|false,\"featureKey\":\"featureKeyCandidate lub lepszy jawny klucz\",\"rationale\":\"max 120 slow — UDOWODNIJ ktory wiersz tabeli zastosowales i DLACZEGO nie wyzszy. Odpowiedz na test kalibracyjny.\"}",
+        "batching": {
+          "batchSize": 1,
+          "delayBetweenBatches": 20000
+        }
+      },
+      "id": "4b7b2c3b-cfac-4474-97ed-4c8fe35fd016",
+      "name": "LLM WIC Reviewer1",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        -2960,
+        -80
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1-nano-2025-04-14",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1-nano-2025-04-14"
+        },
+        "builtInTools": {},
+        "options": {
+          "temperature": 0
+        }
+      },
+      "id": "ccb36c8b-5fd5-4a86-b08d-46bb83f36289",
+      "name": "OpenAI Chat Model1",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -2960,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst originals = $('Expand Contribution Candidates1').all();\n\nfunction asObject(candidate) {\n  if (!candidate) return null;\n  if (typeof candidate === 'object' && !Array.isArray(candidate)) return candidate;\n  if (typeof candidate !== 'string') return null;\n\n  const trimmed = candidate.trim();\n  if (!trimmed) return null;\n\n  try {\n    return JSON.parse(trimmed);\n  } catch {}\n\n  const start = trimmed.indexOf('{');\n  const end = trimmed.lastIndexOf('}');\n  if (start !== -1 && end !== -1 && end > start) {\n    try {\n      return JSON.parse(trimmed.slice(start, end + 1));\n    } catch {}\n  }\n\n  return null;\n}\n\nfunction asBoolean(value) {\n  if (typeof value === 'boolean') return value;\n  if (typeof value === 'string') {\n    return ['true', '1', 'yes'].includes(value.trim().toLowerCase());\n  }\n  return Boolean(value);\n}\n\nreturn items.map((item, index) => {\n  const parsed =\n    asObject(item.json.output) ||\n    asObject(item.json.text) ||\n    asObject(item.json.response) ||\n    asObject(item.json.completion) ||\n    asObject(item.json);\n\n  if (!parsed || !['L4', 'L3', 'L2', 'L1', 'routine'].includes(parsed?.level)) {\n    throw new Error(`LLM returned invalid format for item ${index}. Raw: ${JSON.stringify(item.json).slice(0, 300)}`);\n  }\n\n  const orig = originals[index]?.json ?? {};\n  const fallbackFeatureKey = orig.featureKeyCandidate || `PR-${orig.anchorPrId || '0'}`;\n  const level = parsed.level;\n  const featureKey = typeof parsed?.featureKey === 'string' && parsed.featureKey.trim()\n    ? parsed.featureKey.trim().slice(0, 80)\n    : fallbackFeatureKey;\n  const impactBonus = asBoolean(parsed?.impactBonus);\n  const bountyApplied = asBoolean(parsed?.bountyApplied);\n  const rationale = typeof parsed?.rationale === 'string' ? parsed.rationale.trim().slice(0, 500) : '';\n\n  return {\n    json: {\n      contributorGithubUsername: orig.contributorGithubUsername || 'unknown',\n      prId: orig.anchorPrId || '0',\n      month: orig.month || '',\n      featureKey,\n      level,\n      impactBonus,\n      bountyApplied,\n      rationale\n    }\n  };\n});"
+      },
+      "id": "da0541a1-9faf-4f33-a916-89a6b6660d43",
+      "name": "Parse LLM Output1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2640,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 1. TRIGGER\nDaily at 2:00 AM UTC.\nManual re-run also supported.",
+        "height": 140,
+        "width": 200,
+        "color": 3
+      },
+      "id": "73e97a66-b6ff-47dc-bce3-9a2bc727d603",
+      "name": "Note Trigger1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -6208,
+        -640
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 2. PERIOD + PROFILES\nSets month range. PROFILES array\ndefines who to evaluate.\nSplit Profiles creates one item\nper contributor — each gets\nseparate GitHub queries.",
+        "width": 280,
+        "color": 4
+      },
+      "id": "f2bc6c48-b2a2-4bd9-b1d1-7ea093acfe3e",
+      "name": "Note Period1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -5936,
+        -656
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3. GITHUB FETCH (4 queries per profile)\nEach profile gets separate queries:\n**PR Search** — merged PRs (author:X)\n**Unmerged PR Search** — unmerged (author:X, only APPROVED pass)\n**Issues Search** — authored issues (author:X, excl. bounty)\n**Bounty Search** — all bounty issues (same for all profiles)\n\nWith 3 profiles = 12 GitHub API calls.",
+        "height": 200,
+        "width": 780,
+        "color": 4
+      },
+      "id": "1c241737-bb47-42f0-8ac2-4659e6e2ca47",
+      "name": "Note GitHub1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -5392,
+        -704
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 4. NORMALIZE\nPer profile: combines 4 sources.\nChecks GraphQL errors (throws on fail).\nFilters: merged, unmerged+APPROVED,\nauthor issues. Deduplicates.",
+        "width": 250,
+        "color": 2
+      },
+      "id": "f23130f3-0b1c-481a-bd93-c0cfe05faac0",
+      "name": "Note Normalize1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -4304,
+        -656
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 5-6. FEATURE KEYS + GROUP\nAssign featureKey (SPEC-44, WF3, #NNN,\nor fallback PR-xxx). Then group:\nperson + month + featureKey = 1 unit.\nTracks uniqueFilesCount for >=40 threshold.",
+        "width": 300,
+        "color": 2
+      },
+      "id": "38d81cf3-382d-42e8-8d0d-b7b1d63b9d5a",
+      "name": "Note Keys Group1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -4032,
+        -656
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 7-8. AI SCORING\nGPT-4o-mini (temp=0). Maciej's table.\nL4=rare, >=40 files=auto scope bonus,\nbounty x1.5 with proof only.\nCalibration test applied.\nBad format = fail run.\n\nAUTO-FILTER: Expand node auto-drops\nobvious routine BEFORE LLM.",
+        "height": 220,
+        "width": 300,
+        "color": 3
+      },
+      "id": "d9bcb570-6e04-4ae9-8cf1-6c97f48a176e",
+      "name": "Note AI1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -3216,
+        -688
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 9. COMPUTE FINAL SCORES\nConverts LLM booleans to numbers:\nlevel -> baseScore (L4:1.0, L2:1.0, etc)\nimpactBonus: bool -> 0/0.25/0.5\nbountyApplied: bool -> bountyBonus number\nwicScore = pre_bounty + bountyBonus\n\n## 10. BUILD BATCH + POST\nGroups per ORG (not per user).\nOM API: POST /api/partnerships/wic/import\nAuth: Bearer token (PM account).\nORG_MAP needs real UUIDs.\nPOST disabled — fill ORG_MAP + credential first.",
+        "height": 456,
+        "width": 320,
+        "color": 4
+      },
+      "id": "a63a0fb7-eb46-4ff6-b047-6e841f582084",
+      "name": "Note Payload1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -2480,
+        -848
+      ]
+    },
+    {
+      "parameters": {
+        "content": "Here you can add more users",
+        "height": 80,
+        "color": "#FF0000"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -5984,
+        -432
+      ],
+      "typeVersion": 1,
+      "id": "4c4515e9-1641-4469-97da-6c787d7ba427",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "wpisz UUID organizacji z OM",
+        "height": 80,
+        "color": "#FF0000"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -2128,
+        -784
+      ],
+      "typeVersion": 1,
+      "id": "d3fcc551-cbe5-4bd4-8452-4e976f87fe5a",
+      "name": "Sticky Note2"
+    }
+  ],
+  "connections": {
+    "Compute Final Scores": {
+      "main": [
+        [
+          {
+            "node": "Build WIC Import Batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build WIC Import Batch": {
+      "main": [
+        [
+          {
+            "node": "POST to OM Import API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Set Period Context1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Period Context1": {
+      "main": [
+        [
+          {
+            "node": "Split Profiles1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Profiles1": {
+      "main": [
+        [
+          {
+            "node": "GitHub PR Search1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GitHub PR Search1": {
+      "main": [
+        [
+          {
+            "node": "GitHub Unmerged PR Search1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GitHub Unmerged PR Search1": {
+      "main": [
+        [
+          {
+            "node": "GitHub Issues Search1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GitHub Issues Search1": {
+      "main": [
+        [
+          {
+            "node": "GitHub Bounty Search1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GitHub Bounty Search1": {
+      "main": [
+        [
+          {
+            "node": "Normalize Raw Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Raw Data1": {
+      "main": [
+        [
+          {
+            "node": "Derive Feature Keys1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Derive Feature Keys1": {
+      "main": [
+        [
+          {
+            "node": "Group by Contribution Unit1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Group by Contribution Unit1": {
+      "main": [
+        [
+          {
+            "node": "Has Contribution Candidates1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Contribution Candidates1": {
+      "main": [
+        [
+          {
+            "node": "Expand Contribution Candidates1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expand Contribution Candidates1": {
+      "main": [
+        [
+          {
+            "node": "LLM WIC Reviewer1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM WIC Reviewer1": {
+      "main": [
+        [
+          {
+            "node": "Parse LLM Output1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "LLM WIC Reviewer1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse LLM Output1": {
+      "main": [
+        [
+          {
+            "node": "Compute Final Scores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "819110b17b444725e456d47334300cf6e6eaacf9df44dd3511837358c6f32c6d"
+  }
+}
