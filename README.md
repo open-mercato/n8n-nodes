@@ -1,4 +1,37 @@
+> **Archived (October 2026).** This n8n community node is no longer maintained, and the
+> `n8n-nodes-open-mercato` package was never published to npm. To automate Open Mercato,
+> call its [REST API](https://docs.openmercato.com/) directly, using the OpenAPI spec
+> served by your instance at `/api/docs/openapi`.
+
 # n8n-nodes-open-mercato
+
+[![Status: archived](https://img.shields.io/badge/status-archived-red.svg)](#deprecated)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-openmercato.com-1F7AE0.svg)](https://docs.openmercato.com/)
+[![Core Repo](https://img.shields.io/badge/core-open--mercato-24292F.svg)](https://github.com/open-mercato/open-mercato)
+
+<a id="deprecated"></a>
+
+## ⚠️ Deprecated / Archived
+
+> **This repository is archived and no longer maintained.**
+>
+> **What this means for you:**
+>
+> - 📦 **There is no npm package.** `n8n-nodes-open-mercato` was never published, so
+>   `npm install n8n-nodes-open-mercato` does not work.
+> - 🧊 **No new fixes, features or support are planned** for the code in this repository.
+> - 🔌 **Use the Open Mercato REST API instead.** Every Open Mercato instance serves its
+>   OpenAPI spec at `/api/docs/openapi` (browsable from the backend API docs page). Any
+>   automation tool that can make HTTP requests can call it with an API key. See the
+>   [documentation](https://docs.openmercato.com/).
+> - 🏠 **Open Mercato itself lives in [Open Mercato Core](https://github.com/open-mercato/open-mercato).**
+>   Questions and feature requests belong there.
+
+The rest of this README describes the code as it was left, for anyone who wants to
+build it from source.
+
+## About
 
 OpenMercato REST API community node for [n8n](https://n8n.io).
 
@@ -6,13 +39,8 @@ This package provides a single **OpenMercato REST API** node with 366 auto-gener
 
 ## Installation
 
-Install in your n8n instance:
-
-```bash
-npm install n8n-nodes-open-mercato
-```
-
-Or add to a custom n8n Docker image.
+The package is not on npm. To try it, build it from source (see [Development](#development))
+and load the `dist` output into a custom n8n instance.
 
 ## Credentials
 
