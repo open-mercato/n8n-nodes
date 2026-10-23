@@ -29,8 +29,10 @@ Make it clear to anyone landing on `open-mercato/n8n-nodes` that the community n
 
 ## Progress
 
+PR: #6
+
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
 ### Phase 1: README banner
 
-- [ ] 1.1 Add archived banner and deprecation section to README
+- [x] 1.1 Add archived banner and deprecation section to README — fbe2581
